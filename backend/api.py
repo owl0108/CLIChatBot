@@ -1,6 +1,8 @@
+import logging
+import pdb
+
 from fastapi import Request, APIRouter
 from pydantic import BaseModel
-import logging
 
 # Set up logging
 logger = logging.getLogger(__name__)
@@ -10,6 +12,8 @@ router = APIRouter()
 
 class ChatRequest(BaseModel):
     prompt: str
+    system_message: str
+    
 
 @router.get("/")
 def read_root():
@@ -23,6 +27,18 @@ def chat(req: ChatRequest, request: Request):
     llm = request.app.state.llm
     logger.debug(f"Using LLM of type: {type(llm)}")
 
+    system_message = req.system_message
+    logger.debug(f"Using system message: {system_message[:50]}...")
+
+    # For Llama 3.2 - using chat format
+    messages = [
+        {"role": "system", "content": system_message},
+        {"role": "user", "content": req.prompt}
+        ]
+
     #TODO: examine max_tokens and stop parameters
-    output = llm(req.prompt, max_tokens=256, stop=["###"], repeat_penalty=1.2,)
-    return {"response": output["choices"][0]["text"].strip()}
+    output = llm.create_chat_completion(
+        messages=messages, max_tokens=500, temperature=1, repeat_penalty=1.2
+        )
+    logger.debug(f"Finish reason: {output["choices"][0]["finish_reason"]}")
+    return {"response": output["choices"][0]["message"]["content"].strip()}
