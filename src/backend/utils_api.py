@@ -1,6 +1,7 @@
 import uuid
-from typing import Tuple
+from typing import Tuple, List, Optional
 import logging
+import datetime
 
 from sqlalchemy.orm import Session
 from llama_cpp import Llama
@@ -11,7 +12,7 @@ logger = logging.getLogger(__name__)
 
 
 def get_or_create_session(
-    db: Session, session_id: str = None
+    db: Session, session_id: Optional[str] = None
 ) -> Tuple[str, ChatSession]:
     """Get an existing session or create a new one."""
     if not session_id:

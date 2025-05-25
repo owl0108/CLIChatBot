@@ -12,6 +12,7 @@ from .parameters import DEFAULT_SYSTEM_MESSAGE, API_URL
 app = typer.Typer()
 CHAT_URL = urljoin(API_URL, "chat/")
 
+
 def signal_handler(sig, frame):
     """Handle termination signals by cleaning up the current session."""
     typer.echo("\nReceived termination signal. Closing session...")
@@ -19,12 +20,13 @@ def signal_handler(sig, frame):
         cleanup_session(active_session_id)
     sys.exit(0)
 
+
 @app.command()
 def chat():
     """Start an interactive chat with the LLaMA model running on the backend."""
     global active_session_id
     active_session_id = None  # Initialize global variable to track session ID
-    
+
     # Set up signal handlers for graceful termination
     signal.signal(signal.SIGINT, signal_handler)  # Ctrl+C
     signal.signal(signal.SIGTERM, signal_handler)  # Termination signal
@@ -50,10 +52,13 @@ def chat():
                 if session_id:
                     try:
                         response = requests.post(
-                            CHAT_URL, json={"prompt": "< History clearance request >",
-                                        "system_message": system_message,
-                                        "session_id": session_id,
-                                        "clear_history": True}
+                            CHAT_URL,
+                            json={
+                                "prompt": "< History clearance request >",
+                                "system_message": system_message,
+                                "session_id": session_id,
+                                "clear_history": True,
+                            },
                         )
                         response.raise_for_status()
                         typer.echo("Conversation history cleared.\n")
@@ -64,10 +69,13 @@ def chat():
             else:
                 try:
                     response = requests.post(
-                        CHAT_URL, json={"prompt": prompt,
-                                    "system_message": system_message,
-                                    "session_id": session_id,
-                                    "clear_history": False}
+                        CHAT_URL,
+                        json={
+                            "prompt": prompt,
+                            "system_message": system_message,
+                            "session_id": session_id,
+                            "clear_history": False,
+                        },
                     )
                     response.raise_for_status()
                     typer.echo(f"LLaMA: {response.json()['response']}\n")
@@ -81,6 +89,7 @@ def chat():
         if active_session_id:
             cleanup_session(active_session_id)
             active_session_id = None  # Clear the global variable
+
 
 @app.command()
 def update(
@@ -133,6 +142,7 @@ def update(
                 typer.echo("System message updated successfully.")
             else:
                 typer.echo("No changes made (empty input).")
+
 
 if __name__ == "__main__":
     app()

@@ -18,7 +18,7 @@ router = APIRouter()
 class ChatRequest(BaseModel):
     prompt: str
     system_message: str
-    session_id: str = None
+    session_id: Optional[str] = None
     clear_history: bool = False
 
 
