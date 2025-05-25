@@ -1,15 +1,11 @@
 import json
 import os
-from pathlib import Path
+import requests
+from urllib.parse import urljoin
+
 import typer
 
-CONFIG_DIR = Path(__file__).resolve().parent.parent.parent / "config"
-CONFIG_FILE = CONFIG_DIR / "chatbot_config.json"
-# Default system message if none is set
-DEFAULT_SYSTEM_MESSAGE = """You are a helpful, respectful and honest assistant. \
-    Always answer as helpfully as possible, while being safe, and using the same language written by the user as a multilingual assistant. \
-    Your answers should be detailed, comprehensive but concise. \
-    """
+from .parameters import CONFIG_DIR, CONFIG_FILE, DEFAULT_SYSTEM_MESSAGE, API_URL
 
 def load_config():
     """Load configuration from file or create with defaults if it doesn't exist."""
@@ -39,3 +35,20 @@ def update_config(updates: dict):
     with open(CONFIG_FILE, "w") as f:
         json.dump(config, f, indent=2)
     return config
+
+def cleanup_session(session_id: str):
+    # API_URL is a Path object, convert it to string for requests
+    delete_url = f"{API_URL}/sessions/{session_id}"
+    if session_id:
+        try:
+            response = requests.delete(delete_url)
+            if response.status_code == 200:
+                typer.echo(f"Session {session_id} cleaned up successfully.")
+            else:
+                typer.echo(f"Failed to clean up session: {response.json().get('message', 'Unknown error')}")
+        except Exception as e:
+            typer.echo(f"Error during cleanup: {e}")
+    else:
+        # Nothing to clean up
+        pass
+

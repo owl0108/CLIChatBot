@@ -2,6 +2,7 @@ import logging
 import pdb
 import uuid
 from typing import Optional
+import datetime
 
 from fastapi import Request, APIRouter, Depends
 from pydantic import BaseModel
@@ -76,40 +77,48 @@ def chat(req: ChatRequest, request: Request,  db: Session = Depends(get_db)):
     # llm.tokenize expects UTF-8 encoded bytes
     sys_msg_tokens = llm.tokenize(system_message.encode('utf-8'))
     new_msg_tokens = llm.tokenize(req.prompt.encode('utf-8'))
-    msg_token_count = len(sys_msg_tokens) + len(new_msg_tokens)
-    assert msg_token_count < MAX_TOKENS, f"Input exceeds maximum token limit of {MAX_TOKENS}. Current count: {msg_token_count}"
+    num_new_msg_tokens = len(new_msg_tokens)
+    num_syn_token = len(sys_msg_tokens)
+    num_syn_msg_token = num_syn_token + num_new_msg_tokens
+    assert num_syn_msg_token < MAX_TOKENS,\
+        f"Input exceeds maximum token limit of {MAX_TOKENS}. Current count: {num_syn_msg_token}"
     messages.append({"role": "user", "content": req.prompt})
     logger.debug(f"Sending {len(messages)} messages to LLM")
     
-    #TODO: examine max_tokens and stop parameters
+    #NOTE: change max_tokens and stop parameters depending on your use-case
     # Output 
     output = llm.create_chat_completion(
         messages=messages, max_tokens=1000, temperature=1, repeat_penalty=1.2
         )
-    logger.debug(f"Finish reason: {output["choices"][0]["finish_reason"]}")
+    logger.debug(f"Finish reason: {output['choices'][0]['finish_reason']}")
     response_text = output["choices"][0]["message"]["content"].strip()
-    total_tokens = output["usage"]["total_tokens"]
+    num_response_tokens = output["usage"]["completion_tokens"]
+    num_total_tokens = output["usage"]["total_tokens"]
 
     # if total_tokens exceed the 80% of maximum_tokens_limit, we remove the oldest messages from the history
     # until the total tokens reach the 80% of maximum_tokens_limit
-    max_tokens_limit = MAX_TOKENS * 0.8
-    if total_tokens > max_tokens_limit:
-        logger.warning(f"Total tokens {total_tokens} exceed 80% of max limit {max_tokens_limit}. Trimming history.")
+    max_tokens_limit = (MAX_TOKENS * 0.8) - num_syn_token
+    if num_total_tokens > max_tokens_limit:
+        logger.warning(f"Total tokens {num_total_tokens} exceed 80% of max limit {max_tokens_limit}. Trimming history.")
         # Calculate how many tokens we need to remove
         num_current = sum(msg.num_tokens for msg in db_messages)
         # Remove oldest messages until we reach the limit
         while (num_current > max_tokens_limit) and len(db_messages) > 0:
-            db_messages.pop(0)
+            oldest_msg = db_messages.pop(0)
+            db.delete(oldest_msg)
+            num_current -= oldest_msg.num_tokens
+        db.commit()
     
     # Save the conversation to the database
     #TODO: Need Fix about num_tokens here
-    db.add(Message(session_id=session_id, role="user", content=req.prompt, num_tokens=total_tokens))
-    db.add(Message(session_id=session_id, role="assistant", content=response_text, num_tokens=total_tokens))
+    db.add(Message(session_id=session_id, role="user", content=req.prompt, num_tokens=num_new_msg_tokens))
+    db.add(Message(session_id=session_id, role="assistant", content=response_text, num_tokens=num_response_tokens))
+    # Update session's last activity
+    db_session.last_activity = datetime.datetime.now(datetime.timezone.utc)
     db.commit()
+    
     return {"response": response_text, "session_id": session_id}
 
-##############
-# below have not been tested yet
 @router.get("/sessions")
 def list_sessions(db: Session = Depends(get_db)):
     """List all available chat sessions."""
@@ -117,7 +126,7 @@ def list_sessions(db: Session = Depends(get_db)):
     result = []
     
     for session in sessions:
-        message_count = db.query(Message).filter(Message.session_id == session.id).count()
+        message_count = db.query(Message).filter(Message.session_id == session.session_id).count()
         result.append({
             "session_id": session.session_id,
             "created_at": session.created_at.isoformat(),
