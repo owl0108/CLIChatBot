@@ -5,9 +5,9 @@ CLIChatBot is a command-line interface chatbot application built on a server-cli
 **Features**
 
 - Interactive command-line chat interface
-- Persistent chat history during the session (deleting when exiting)
+- Persistent chat history during the session (deleted when exiting)
 - Configurable system messages to customize the assistant's behavior
-- History management (clear conversation history during the session)
+- History management (clearable conversation history during the session)
 
 **Future Development Plan**
 
