@@ -19,7 +19,7 @@ def chat():
     # Load the system message from config
     config = load_config()
     system_message = config["system_message"]
-
+    session_id = None
     while True:
         prompt = typer.prompt("You")
 
@@ -29,10 +29,14 @@ def chat():
 
         try:
             response = requests.post(
-                API_URL, json={"prompt": prompt, "system_message": system_message}
+                API_URL, json={"prompt": prompt,
+                               "system_message": system_message,
+                               "session_id": session_id,
+                               "clear_history": False}
             )
             response.raise_for_status()
-            typer.echo(f"LLaMA: {response.json()['response']}")
+            typer.echo(f"LLaMA: {response.json()['response']}\n")
+            session_id = response.json().get("session_id", session_id)
         except requests.exceptions.RequestException as e:
             typer.echo(f"[Error] Failed to connect to backend: {e}")
 

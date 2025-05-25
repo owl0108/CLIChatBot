@@ -1,6 +1,8 @@
 from llama_cpp import Llama
 
 # TODO: separate model configuration from loading logic
+
+MAX_TOKENS = 10000 # Maximum for unsloth/Llama-3.2-3B-Instruct-GGUF/Llama-3.2-3B-Instruct-IQ4_NL.gguf is around 13k
 def load_model() -> Llama: 
     print("Loading model...")
     llm = Llama.from_pretrained(
