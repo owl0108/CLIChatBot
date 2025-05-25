@@ -38,7 +38,7 @@ def chat(req: ChatRequest, request: Request):
 
     #TODO: examine max_tokens and stop parameters
     output = llm.create_chat_completion(
-        messages=messages, max_tokens=500, temperature=1, repeat_penalty=1.2
+        messages=messages, max_tokens=1000, temperature=1, repeat_penalty=1.2
         )
     logger.debug(f"Finish reason: {output["choices"][0]["finish_reason"]}")
     return {"response": output["choices"][0]["message"]["content"].strip()}

@@ -1,8 +1,5 @@
-import os
 import requests
 from typing import Optional
-from pathlib import Path
-import pdb
 
 import typer
 

@@ -3,12 +3,12 @@ import os
 from pathlib import Path
 import typer
 
-CONFIG_DIR = Path(__file__).resolve().parent.parent / "config"
+CONFIG_DIR = Path(__file__).resolve().parent.parent.parent / "config"
 CONFIG_FILE = CONFIG_DIR / "chatbot_config.json"
 # Default system message if none is set
 DEFAULT_SYSTEM_MESSAGE = """You are a helpful, respectful and honest assistant. \
     Always answer as helpfully as possible, while being safe, and using the same language written by the user as a multilingual assistant. \
-    Your answers should be detailed and comprehensive, but should not exceed more than few paragraphs. \
+    Your answers should be detailed, comprehensive but concise. \
     """
 
 def load_config():
