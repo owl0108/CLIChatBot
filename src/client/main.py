@@ -15,6 +15,7 @@ API_URL = "http://localhost:8000/chat"
 def chat():
     """Start an interactive chat with the LLaMA model running on the backend."""
     typer.echo("Type 'exit' or 'quit' to end the chat.")
+    typer.echo("Type '/clear' to clear conversation history.")
 
     # Load the system message from config
     config = load_config()
@@ -23,22 +24,40 @@ def chat():
     while True:
         prompt = typer.prompt("You")
 
+        # Handle exit command
         if prompt.lower() in ["exit", "quit"]:
             typer.echo("Exiting chat.")
             break
 
-        try:
-            response = requests.post(
-                API_URL, json={"prompt": prompt,
-                               "system_message": system_message,
-                               "session_id": session_id,
-                               "clear_history": False}
-            )
-            response.raise_for_status()
-            typer.echo(f"LLaMA: {response.json()['response']}\n")
-            session_id = response.json().get("session_id", session_id)
-        except requests.exceptions.RequestException as e:
-            typer.echo(f"[Error] Failed to connect to backend: {e}")
+        # Handle chat history clearning
+        elif prompt.lower() == "/clear":
+            if session_id:
+                try:
+                    response = requests.post(
+                        API_URL, json={"prompt": "< History clearance request >",
+                                      "system_message": system_message,
+                                      "session_id": session_id,
+                                      "clear_history": True}
+                    )
+                    response.raise_for_status()
+                    typer.echo("Conversation history cleared.\n")
+                except requests.exceptions.RequestException as e:
+                    typer.echo(f"[Error] Failed to clear history: {e}\n")
+            else:
+                typer.echo("No active conversation to clear.\n")
+        else:
+            try:
+                response = requests.post(
+                    API_URL, json={"prompt": prompt,
+                                "system_message": system_message,
+                                "session_id": session_id,
+                                "clear_history": False}
+                )
+                response.raise_for_status()
+                typer.echo(f"LLaMA: {response.json()['response']}\n")
+                session_id = response.json().get("session_id", session_id)
+            except requests.exceptions.RequestException as e:
+                typer.echo(f"[Error] Failed to connect to backend: {e}\n")
 
 
 @app.command()
@@ -92,7 +111,6 @@ def update(
                 typer.echo("System message updated successfully.")
             else:
                 typer.echo("No changes made (empty input).")
-
 
 if __name__ == "__main__":
     app()

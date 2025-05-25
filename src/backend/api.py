@@ -35,8 +35,7 @@ def chat(req: ChatRequest, request: Request,  db: Session = Depends(get_db)):
     llm = request.app.state.llm
     logger.debug(f"Using LLM of type: {type(llm)}")
 
-     # Get or create session ID
-    session_id = req.session_id
+
     # Get or create session ID
     session_id = req.session_id
     if not session_id:
@@ -57,24 +56,33 @@ def chat(req: ChatRequest, request: Request,  db: Session = Depends(get_db)):
         db.query(Message).filter(Message.session_id == session_id).delete()
         db.commit()
         logger.info(f"Cleared history for session {session_id}")
+        return {"response": "History has been cleared!", "session_id": session_id}
     
     # Get history for this session
     db_messages = db.query(Message).filter(
         Message.session_id == session_id
     ).order_by(Message.timestamp).all()
-    print(session_id)
-    print(db_messages)
-    # Build messages list with history
+
+
+    # Build messages list
     # Format for Llama 3.2 is OpenAI chat format
     messages = [
         {"role": "system", "content": system_message},
     ]
     [messages.append({"role": msg.role, "content": msg.content}) for msg in db_messages]
+
     # Add the new user message
+    # validate that the new message + system message is within the token limit
+    # llm.tokenize expects UTF-8 encoded bytes
+    sys_msg_tokens = llm.tokenize(system_message.encode('utf-8'))
+    new_msg_tokens = llm.tokenize(req.prompt.encode('utf-8'))
+    msg_token_count = len(sys_msg_tokens) + len(new_msg_tokens)
+    assert msg_token_count < MAX_TOKENS, f"Input exceeds maximum token limit of {MAX_TOKENS}. Current count: {msg_token_count}"
     messages.append({"role": "user", "content": req.prompt})
     logger.debug(f"Sending {len(messages)} messages to LLM")
-
+    
     #TODO: examine max_tokens and stop parameters
+    # Output 
     output = llm.create_chat_completion(
         messages=messages, max_tokens=1000, temperature=1, repeat_penalty=1.2
         )
@@ -86,7 +94,7 @@ def chat(req: ChatRequest, request: Request,  db: Session = Depends(get_db)):
     # until the total tokens reach the 80% of maximum_tokens_limit
     max_tokens_limit = MAX_TOKENS * 0.8
     if total_tokens > max_tokens_limit:
-        logger.warning(f"Total tokens {total_tokens} exceed 70% of max limit {max_tokens_limit}. Trimming history.")
+        logger.warning(f"Total tokens {total_tokens} exceed 80% of max limit {max_tokens_limit}. Trimming history.")
         # Calculate how many tokens we need to remove
         num_current = sum(msg.num_tokens for msg in db_messages)
         # Remove oldest messages until we reach the limit
@@ -98,12 +106,10 @@ def chat(req: ChatRequest, request: Request,  db: Session = Depends(get_db)):
     db.add(Message(session_id=session_id, role="user", content=req.prompt, num_tokens=total_tokens))
     db.add(Message(session_id=session_id, role="assistant", content=response_text, num_tokens=total_tokens))
     db.commit()
-
     return {"response": response_text, "session_id": session_id}
 
 ##############
 # below have not been tested yet
-
 @router.get("/sessions")
 def list_sessions(db: Session = Depends(get_db)):
     """List all available chat sessions."""
