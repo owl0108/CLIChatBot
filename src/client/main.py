@@ -122,26 +122,30 @@ def update(
         update_config(config)
         typer.echo("System message updated successfully.")
     else:
-        # Interactive mode: open editor or multi-line input
+        # Interactive mode: multi-line input with explicit end command
         current = config["system_message"]
         typer.echo(
-            "Enter new system message (press Ctrl+D or Ctrl+Z on a new line to finish):"
+            "Enter new system message (type ':save' on a new line to save, or ':cancel' to cancel):"
         )
         typer.echo(f"Current: {current}")
 
         lines = []
-        try:
-            while True:
+        typer.echo("\nNew system message (multi-line): ")
+        while True:
+            try:
                 line = input()
+                if line.strip() == ":save":
+                    config["system_message"] = "\n".join(lines)
+                    update_config(config)
+                    typer.echo("System message updated successfully.")
+                    break
+                elif line.strip() == ":cancel":
+                    typer.echo("Cancelled. No changes made.")
+                    return
                 lines.append(line)
-        except EOFError:
-            new_message = "\n".join(lines)
-            if new_message.strip():  # empty string evaluates to False
-                config["system_message"] = new_message
-                update_config(config)
-                typer.echo("System message updated successfully.")
-            else:
-                typer.echo("No changes made (empty input).")
+            except KeyboardInterrupt:
+                typer.echo("\nInput cancelled. No changes made.")
+                return
 
 
 if __name__ == "__main__":
